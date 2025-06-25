@@ -1,0 +1,133 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    function isValidUser(data) {
+      return data.keys().hasAll(['email', 'displayName', 'role', 'university', 'graduationYear']) &&
+        data.role in ['student', 'admin'] &&
+        data.email is string &&
+        data.displayName is string &&
+        data.university is string &&
+        data.graduationYear is number;
+    }
+    
+    function isValidQuestion(data) {
+      return data.keys().hasAll(['content', 'options', 'correctAnswer', 'explanation', 'domain', 'difficulty']) &&
+        data.domain in ['biomedical', 'pharmaceutical', 'social', 'clinical'] &&
+        data.difficulty in ['easy', 'medium', 'hard'] &&
+        data.options is list &&
+        data.options.size() >= 2 &&
+        data.correctAnswer is number &&
+        data.correctAnswer >= 0 &&
+        data.correctAnswer < data.options.size();
+    }
+    
+    function isValidExamSession(data) {
+      return data.keys().hasAll(['userId', 'examType', 'section', 'questions', 'answers']) &&
+        data.examType in ['practice', 'mock', 'custom'] &&
+        data.section in [1, 2] &&
+        data.questions is list &&
+        data.answers is list &&
+        data.questions.size() == data.answers.size();
+    }
+    
+    // Users collection
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
+      allow create: if isAuthenticated() && isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isAuthenticated() && isOwner(userId) && isValidUser(request.resource.data);
+      allow delete: if isAdmin();
+      
+      // Allow admins to read all users for management
+      allow list: if isAdmin();
+    }
+    
+    // Questions collection
+    match /questions/{questionId} {
+      // Students can read approved questions
+      allow read: if isAuthenticated() && resource.data.approved == true;
+      
+      // Admins can read all questions (including unapproved)
+      allow read: if isAdmin();
+      
+      // Only admins can create, update, and delete questions
+      allow create: if isAdmin() && isValidQuestion(request.resource.data);
+      allow update: if isAdmin() && isValidQuestion(request.resource.data);
+      allow delete: if isAdmin();
+      
+      // Allow admins to list all questions
+      allow list: if isAdmin();
+      
+      // Allow students to list approved questions with domain filter
+      allow list: if isAuthenticated() && 
+        request.query.where.size() > 0 &&
+        request.query.where[0][0] == 'approved' &&
+        request.query.where[0][2] == true;
+    }
+    
+    // Exam sessions collection
+    match /examSessions/{sessionId} {
+      allow read, create: if isAuthenticated() && isOwner(resource.data.userId);
+      allow update: if isAuthenticated() && 
+        isOwner(resource.data.userId) && 
+        isValidExamSession(request.resource.data);
+      allow delete: if isAuthenticated() && (isOwner(resource.data.userId) || isAdmin());
+      
+      // Users can list their own exam sessions
+      allow list: if isAuthenticated() && 
+        request.query.where.size() > 0 &&
+        request.query.where[0][0] == 'userId' &&
+        request.query.where[0][2] == request.auth.uid;
+      
+      // Admins can list all exam sessions
+      allow list: if isAdmin();
+    }
+    
+    // User progress collection
+    match /userProgress/{userId} {
+      allow read, write: if isAuthenticated() && isOwner(userId);
+      allow read: if isAdmin();
+      
+      // Allow admins to read all user progress
+      allow list: if isAdmin();
+    }
+    
+    // System statistics (read-only for students, read-write for admins)
+    match /systemStats/{statId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+    
+    // Feedback and support tickets
+    match /feedback/{feedbackId} {
+      allow create: if isAuthenticated();
+      allow read, update, delete: if isAdmin();
+      allow read: if isAuthenticated() && isOwner(resource.data.userId);
+    }
+    
+    // Announcements (read-only for students, read-write for admins)
+    match /announcements/{announcementId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+    
+    // Audit logs (admin only)
+    match /auditLogs/{logId} {
+      allow read, write: if isAdmin();
+    }
+  }
+}
