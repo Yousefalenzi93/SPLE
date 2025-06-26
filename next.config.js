@@ -11,6 +11,21 @@ const nextConfig = {
   },
   typescript: {
     ignoreBuildErrors: true
+  },
+  experimental: {
+    esmExternals: false
+  },
+  webpack: (config, { isServer }) => {
+    // Fix for module resolution issues in Netlify
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@': require('path').resolve(__dirname, 'src')
+    }
+    
+    // Ensure proper file extensions are resolved
+    config.resolve.extensions = ['.tsx', '.ts', '.jsx', '.js', '.json']
+    
+    return config
   }
 }
 
