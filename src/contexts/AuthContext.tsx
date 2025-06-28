@@ -63,13 +63,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const register = async (email: string, password: string, userData: RegisterData) => {
     try {
+      console.log('Starting registration process for:', email)
+
       const result = await createUserWithEmailAndPassword(auth, email, password)
-      
+
       if (result.user) {
+        console.log('Firebase Auth user created:', result.user.uid)
+
         // Update Firebase Auth profile
         await updateProfile(result.user, {
           displayName: userData.displayName
         })
+        console.log('Firebase Auth profile updated')
 
         // Create user document in Firestore
         await createUser({
@@ -80,12 +85,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           university: userData.university,
           graduationYear: userData.graduationYear
         })
+        console.log('Firestore user document created')
 
         // Send email verification
         await sendEmailVerification(result.user)
+        console.log('Email verification sent')
       }
     } catch (error: any) {
-      console.error('Registration error:', error)
+      console.error('Registration error details:', {
+        code: error.code,
+        message: error.message,
+        stack: error.stack
+      })
+
+      // More specific error handling
+      if (error.message === 'فشل في إنشاء بيانات المستخدم') {
+        throw new Error('فشل في حفظ بيانات المستخدم. يرجى المحاولة مرة أخرى.')
+      }
+
       throw new Error(getAuthErrorMessage(error.code))
     }
   }
@@ -184,6 +201,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 // Helper function to translate Firebase auth error codes to Arabic
 const getAuthErrorMessage = (errorCode: string): string => {
+  console.log('Error code received:', errorCode)
+
   switch (errorCode) {
     case 'auth/user-not-found':
       return 'لا يوجد حساب مرتبط بهذا البريد الإلكتروني'
@@ -201,7 +220,16 @@ const getAuthErrorMessage = (errorCode: string): string => {
       return 'تم تجاوز عدد المحاولات المسموح. حاول مرة أخرى لاحقاً'
     case 'auth/network-request-failed':
       return 'خطأ في الاتصال بالإنترنت'
+    case 'auth/operation-not-allowed':
+      return 'تسجيل الحسابات الجديدة غير مفعل. يرجى التواصل مع المدير'
+    case 'auth/requires-recent-login':
+      return 'يرجى تسجيل الدخول مرة أخرى لإتمام هذه العملية'
+    case 'permission-denied':
+      return 'ليس لديك صلاحية لتنفيذ هذه العملية'
+    case 'unavailable':
+      return 'الخدمة غير متاحة حالياً. يرجى المحاولة لاحقاً'
     default:
-      return 'حدث خطأ غير متوقع. حاول مرة أخرى'
+      console.log('Unknown error code:', errorCode)
+      return `حدث خطأ غير متوقع (${errorCode || 'unknown'}). يرجى المحاولة مرة أخرى أو التواصل مع الدعم الفني`
   }
 }

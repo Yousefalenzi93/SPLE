@@ -6,6 +6,7 @@ import {
   addDoc,
   updateDoc,
   deleteDoc,
+  setDoc,
   query,
   where,
   orderBy,
@@ -35,12 +36,18 @@ export const userProgressCollection = collection(db, 'userProgress')
 
 // User operations
 export const createUser = async (userData: Omit<User, 'uid' | 'createdAt' | 'lastLogin'> & { uid: string }) => {
-  const userDoc = doc(usersCollection, userData.uid)
-  await updateDoc(userDoc, {
-    ...userData,
-    createdAt: serverTimestamp(),
-    lastLogin: serverTimestamp()
-  })
+  try {
+    const userDoc = doc(usersCollection, userData.uid)
+    await setDoc(userDoc, {
+      ...userData,
+      createdAt: serverTimestamp(),
+      lastLogin: serverTimestamp()
+    })
+    console.log('User created successfully:', userData.uid)
+  } catch (error) {
+    console.error('Error creating user:', error)
+    throw new Error('فشل في إنشاء بيانات المستخدم')
+  }
 }
 
 export const getUser = async (uid: string): Promise<User | null> => {
