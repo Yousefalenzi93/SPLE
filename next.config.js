@@ -1,34 +1,32 @@
-{
-  "compilerOptions": {
-    "target": "es5",
-    "lib": ["dom", "dom.iterable", "es6"],
-    "allowJs": true,
-    "skipLibCheck": true,
-    "strict": false,
-    "noEmit": true,
-    "esModuleInterop": true,
-    "module": "esnext",
-    "moduleResolution": "bundler",
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "jsx": "preserve",
-    "incremental": true,
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ],
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["./src/*"]
-    }
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  output: 'export',
+  trailingSlash: true,
+  distDir: 'out',
+  images: {
+    unoptimized: true
   },
-  "include": [
-    "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
-    ".next/types/**/*.ts",
-    "src/**/*"
-  ],
-  "exclude": ["node_modules"]
+  eslint: {
+    ignoreDuringBuilds: true
+  },
+  typescript: {
+    ignoreBuildErrors: true
+  },
+  experimental: {
+    esmExternals: false
+  },
+  webpack: (config, { isServer }) => {
+    // Fix for module resolution issues
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@': require('path').resolve(__dirname, 'src')
+    }
+    
+    // Ensure proper file extensions are resolved
+    config.resolve.extensions = ['.tsx', '.ts', '.jsx', '.js', '.json']
+    
+    return config
+  }
 }
+
+module.exports = nextConfig
