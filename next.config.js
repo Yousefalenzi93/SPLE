@@ -1,3 +1,5 @@
+const path = require('path')
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'export',
@@ -19,11 +21,17 @@ const nextConfig = {
     // Fix for module resolution issues
     config.resolve.alias = {
       ...config.resolve.alias,
-      '@': require('path').resolve(__dirname, 'src')
+      '@': path.resolve(__dirname, 'src')
     }
     
     // Ensure proper file extensions are resolved
     config.resolve.extensions = ['.tsx', '.ts', '.jsx', '.js', '.json']
+    
+    // Additional module resolution fixes
+    config.resolve.modules = [
+      path.resolve(__dirname, 'src'),
+      'node_modules'
+    ]
     
     return config
   }
